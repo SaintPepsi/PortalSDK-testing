@@ -10,7 +10,10 @@ If you're ever unsure how to do something, try searching for a relevant function
 
 import { ParseUI } from "modlib";
 
-function MakeMessage(message: string, ...args: any[]) {
+function MakeMessage(
+  message: string | number | mod.Player,
+  ...args: (string | number | mod.Player)[]
+) {
   switch (args.length) {
     case 0:
       return mod.Message(message);
@@ -40,29 +43,57 @@ let uniqueID: number = 0;
 //////////// Useful player action-related events to hook up reactive logics to ////////////
 
 // Triggered when player joins the game. Useful for pregame setup, team management, etc.
-export function OnPlayerJoinGame(eventPlayer: mod.Player): void {
+export async function OnPlayerJoinGame(eventPlayer: mod.Player): Promise<void> {
+  mod.DisplayNotificationMessage(MakeMessage(">>> OnPlayerJoinGame START <<<"));
+
   // Initialize player choice
   playerChoices.set(eventPlayer, PlayerChoice.None);
+
+  mod.DisplayNotificationMessage(
+    MakeMessage("Player joined, choice set to None")
+  );
+
+  // With AutoSpawn mode, player will deploy automatically
+  // We'll show the UI in OnPlayerDeployed and undeploy them there
 }
 
 // Triggered when player leaves the game. Useful for clean up logic, team management, etc.
 export function OnPlayerLeaveGame(eventNumber: number): void {}
 
-// Triggered when player selects their class and deploys into game. Useful for any spawn/start logic.
-export function OnPlayerDeployed(eventPlayer: mod.Player): void {
-  console.log("OnPlayerDeployed called for player:", eventPlayer);
+// Triggered when player deploys into game. With AutoSpawn this happens automatically.
+export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
+  mod.DisplayNotificationMessage(
+    MakeMessage("=== OnPlayerDeployed called ===")
+  );
 
   const choice = playerChoices.get(eventPlayer);
+  const choiceStr =
+    choice === undefined
+      ? "UNDEFINED"
+      : choice === PlayerChoice.None
+      ? "NONE"
+      : "CHOSEN";
+  mod.DisplayNotificationMessage(MakeMessage("Player choice: ", choiceStr));
 
-  // If player hasn't made a choice yet, show the welcome screen
-  if (choice === PlayerChoice.None) {
-    // Prevent player from moving until they make a choice
-    mod.UndeployPlayer(eventPlayer);
+  // If player hasn't made a choice yet (or isn't in the map), show UI then undeploy them
+  if (choice === PlayerChoice.None || choice === undefined) {
+    mod.DisplayNotificationMessage(MakeMessage(">>> Showing UI..."));
+
+    // Show the welcome screen FIRST
     showWelcomeScreen(eventPlayer);
+
+    mod.DisplayNotificationMessage(MakeMessage(">>> Undeploying player..."));
+    // Wait a tiny bit for UI to register
+    await mod.Wait(0.1);
+
+    // Now undeploy them back to spectator
+    mod.UndeployPlayer(eventPlayer);
+    mod.DisplayNotificationMessage(MakeMessage(">>> Player undeployed"));
     return;
   }
 
-  // Apply loadout based on player choice
+  // They've made a choice, apply loadout
+  mod.DisplayNotificationMessage(MakeMessage("Player chose, applying loadout"));
   stripPlayer(eventPlayer);
 
   if (choice === PlayerChoice.Play) {
@@ -87,16 +118,33 @@ function showWelcomeScreen(eventPlayer: mod.Player): void {
   const buttonHeight = 60;
   const buttonSpacing = 50;
 
-  const welcomeUI = ParseUI({
+  console.log(
+    MakeMessage(
+      "Creating welcome screen for player: ",
+      mod.GetObjId(eventPlayer)
+    )
+  );
+  console.log(
+    MakeMessage("Player is valid? ", String(mod.IsPlayerValid(eventPlayer)))
+  );
+  console.log(
+    MakeMessage(
+      "Player is alive? ",
+      String(mod.GetSoldierState(eventPlayer, mod.SoldierStateBool.IsAlive))
+    )
+  );
+
+  // Create the container WITHOUT playerId restriction (show to everyone)
+  const container = ParseUI({
     type: "Container",
     size: [containerWidth, containerHeight],
     position: [0, 0],
     name: "welcome_container_" + playerId,
     anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.Blur,
+    bgFill: mod.UIBgFill.Solid, // Changed from Blur to Solid for visibility
     bgColor: [0.1, 0.1, 0.2],
     bgAlpha: 0.95,
-    playerId: eventPlayer,
+    // playerId: eventPlayer,  // REMOVED - showing to all players for testing
     visible: true,
     children: [
       {
@@ -123,70 +171,98 @@ function showWelcomeScreen(eventPlayer: mod.Player): void {
         textLabel: mod.Message("Would you like to explore or play?"),
         textSize: 24,
       },
-      {
-        type: "Button",
-        name: "btn_play_" + playerId,
-        size: [buttonWidth, buttonHeight],
-        position: [-buttonWidth / 2 - buttonSpacing / 2, 60],
-        anchor: mod.UIAnchor.Center,
-        bgFill: mod.UIBgFill.Solid,
-        bgColor: [0.2, 0.6, 0.2],
-        bgAlpha: 0.9,
-        buttonColorBase: [0.2, 0.6, 0.2],
-        buttonAlphaBase: 1,
-        buttonColorHover: [0.3, 0.8, 0.3],
-        buttonAlphaHover: 1,
-        buttonColorPressed: [0.1, 0.4, 0.1],
-        buttonAlphaPressed: 1,
-        children: [
-          {
-            type: "Text",
-            name: "btn_play_text_" + playerId,
-            size: [buttonWidth, buttonHeight],
-            position: [0, 0],
-            anchor: mod.UIAnchor.Center,
-            bgFill: mod.UIBgFill.None,
-            textColor: [1, 1, 1],
-            textAnchor: mod.UIAnchor.Center,
-            textLabel: mod.Message("PLAY"),
-            textSize: 28,
-          },
-        ],
-      },
-      {
-        type: "Button",
-        name: "btn_explore_" + playerId,
-        size: [buttonWidth, buttonHeight],
-        position: [buttonWidth / 2 + buttonSpacing / 2, 60],
-        anchor: mod.UIAnchor.Center,
-        bgFill: mod.UIBgFill.Solid,
-        bgColor: [0.2, 0.4, 0.8],
-        bgAlpha: 0.9,
-        buttonColorBase: [0.2, 0.4, 0.8],
-        buttonAlphaBase: 1,
-        buttonColorHover: [0.3, 0.5, 1],
-        buttonAlphaHover: 1,
-        buttonColorPressed: [0.1, 0.2, 0.5],
-        buttonAlphaPressed: 1,
-        children: [
-          {
-            type: "Text",
-            name: "btn_explore_text_" + playerId,
-            size: [buttonWidth, buttonHeight],
-            position: [0, 0],
-            anchor: mod.UIAnchor.Center,
-            bgFill: mod.UIBgFill.None,
-            textColor: [1, 1, 1],
-            textAnchor: mod.UIAnchor.Center,
-            textLabel: mod.Message("EXPLORE"),
-            textSize: 28,
-          },
-        ],
-      },
     ],
   });
 
-  console.log("Welcome UI created:", welcomeUI);
+  // Create buttons separately and add them as children of the container
+  const playButton = ParseUI({
+    type: "Button",
+    name: "btn_play_" + playerId,
+    size: [buttonWidth, buttonHeight],
+    position: [-buttonWidth / 2 - buttonSpacing / 2, 60],
+    anchor: mod.UIAnchor.Center,
+    parent: container,
+    bgFill: mod.UIBgFill.Solid,
+    bgColor: [0.2, 0.6, 0.2],
+    bgAlpha: 0.9,
+    buttonColorBase: [0.2, 0.6, 0.2],
+    buttonAlphaBase: 1,
+    buttonColorHover: [0.3, 0.8, 0.3],
+    buttonAlphaHover: 1,
+    buttonColorPressed: [0.1, 0.4, 0.1],
+    buttonAlphaPressed: 1,
+  });
+
+  ParseUI({
+    type: "Text",
+    name: "btn_play_text_" + playerId,
+    size: [buttonWidth, buttonHeight],
+    position: [0, 0],
+    anchor: mod.UIAnchor.Center,
+    parent: playButton,
+    bgFill: mod.UIBgFill.None,
+    textColor: [1, 1, 1],
+    textAnchor: mod.UIAnchor.Center,
+    textLabel: mod.Message("PLAY"),
+    textSize: 28,
+  });
+
+  const exploreButton = ParseUI({
+    type: "Button",
+    name: "btn_explore_" + playerId,
+    size: [buttonWidth, buttonHeight],
+    position: [buttonWidth / 2 + buttonSpacing / 2, 60],
+    anchor: mod.UIAnchor.Center,
+    parent: container,
+    bgFill: mod.UIBgFill.Solid,
+    bgColor: [0.2, 0.4, 0.8],
+    bgAlpha: 0.9,
+    buttonColorBase: [0.2, 0.4, 0.8],
+    buttonAlphaBase: 1,
+    buttonColorHover: [0.3, 0.5, 1],
+    buttonAlphaHover: 1,
+    buttonColorPressed: [0.1, 0.2, 0.5],
+    buttonAlphaPressed: 1,
+  });
+
+  ParseUI({
+    type: "Text",
+    name: "btn_explore_text_" + playerId,
+    size: [buttonWidth, buttonHeight],
+    position: [0, 0],
+    anchor: mod.UIAnchor.Center,
+    parent: exploreButton,
+    bgFill: mod.UIBgFill.None,
+    textColor: [1, 1, 1],
+    textAnchor: mod.UIAnchor.Center,
+    textLabel: mod.Message("EXPLORE"),
+    textSize: 28,
+  });
+
+  console.log(
+    MakeMessage("Welcome UI created - container: ", container ? "YES" : "NO")
+  );
+  console.log(MakeMessage("Play button: ", playButton ? "YES" : "NO"));
+  console.log(MakeMessage("Explore button: ", exploreButton ? "YES" : "NO"));
+
+  // CRITICAL: Set UI depth to appear above the deployment/class selection screen
+  if (container) {
+    mod.SetUIWidgetDepth(container, mod.UIDepth.AboveGameUI);
+    mod.SetUIWidgetVisible(container, true); // Explicitly set visible
+    console.log(MakeMessage("Container depth and visibility set"));
+  }
+
+  // Also set depth on the buttons so they appear above the deployment screen
+  if (playButton) {
+    mod.SetUIWidgetDepth(playButton, mod.UIDepth.AboveGameUI);
+    mod.SetUIWidgetVisible(playButton, true);
+    console.log(MakeMessage("Play button depth and visibility set"));
+  }
+  if (exploreButton) {
+    mod.SetUIWidgetDepth(exploreButton, mod.UIDepth.AboveGameUI);
+    mod.SetUIWidgetVisible(exploreButton, true);
+    console.log(MakeMessage("Explore button depth and visibility set"));
+  }
 }
 
 // Triggered on player death/kill, returns dying player, the killer, etc. Useful for updating scores, updating progression, handling any death/kill related logic.
@@ -254,7 +330,7 @@ export function OnPlayerUIButtonEvent(
   }
 
   const widgetName = mod.GetUIWidgetName(eventUIWidget);
-  console.log("Button clicked:", widgetName);
+  console.log(MakeMessage("Button clicked: ", widgetName));
 
   // Check if it's one of our welcome screen buttons
   if (widgetName.startsWith("btn_play_")) {
@@ -300,14 +376,22 @@ function stripPlayer(player: mod.Player): void {
     mod.RemoveEquipment(player, mod.InventorySlots.ClassGadget);
     mod.RemoveEquipment(player, mod.InventorySlots.Throwable);
   } catch (error) {
-    console.log("Error stripping player:", error);
+    console.log(
+      MakeMessage("Error stripping player: ", JSON.stringify(error, null, 2))
+    );
   }
 }
 
 // Triggered on main gamemode start/end. Useful for game start setup and cleanup.
 export async function OnGameModeStarted() {
+  // CRITICAL TEST: This should show to everyone when the game starts
+  mod.DisplayNotificationMessage(MakeMessage("!!! TESTING MOD LOADED !!!"));
+
+  // Set AutoSpawn mode to skip the deployment screen entirely
   mod.SetSpawnMode(mod.SpawnModes.AutoSpawn);
-  console.log("Game Mode Started");
+
+  await mod.Wait(2);
+  mod.DisplayNotificationMessage(MakeMessage("AutoSpawn mode enabled"));
 
   // Enables or disables a headquater. Note that HQ_PlayerSpawner has to be placed in Godot scene, assigned an ObjId and a HQArea(CollisionPolygon3D).
   const hq = mod.GetHQ(0);

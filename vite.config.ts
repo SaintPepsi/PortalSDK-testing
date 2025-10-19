@@ -92,7 +92,7 @@ export default defineConfig({
         // Copy strings.json file
         const stringsSource = path.resolve(
           __dirname,
-          "mods/Testing/Testing.strings.json"
+          "mods/Testing/strings.json"
         );
         const stringsDest = path.join(distDir, "strings.json");
         if (fs.existsSync(stringsSource)) {

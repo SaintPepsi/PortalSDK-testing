@@ -1,0 +1,62 @@
+# Executables
+*.exe
+
+# Build outputs
+dist/
+export/
+
+# Battlefield Portal Export Data (thousands of asset thumbnails)
+FbExportData/
+
+# Node.js dependencies (reinstalled via npm install)
+node_modules/
+
+# Python virtual environment (recreated via python -m venv)
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Godot 4+ specific ignores
+GodotProject/.godot/
+GodotProject/.nomedia
+
+# Godot-specific ignores
+GodotProject/.import/
+GodotProject/export.cfg
+GodotProject/export_credentials.cfg
+*.tmp
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+GodotProject/.mono/
+GodotProject/data_*/
+mono_crash.*.json
+
+# Godot raw assets (large Battlefield 3D models from game export - 2.5GB)
+GodotProject/raw/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Lock files (optional - some teams commit these)
+# Uncomment if you don't want to track lock files
+# package-lock.json
+# bun.lock
+
+# Local configuration
+.env
+.env.local

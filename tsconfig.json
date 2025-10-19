@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "modlib": ["./code/modlib"]
+    }
+  },
+  "include": ["./mods/**/*", "./code/mod/index.d.ts", "./dist/dist.ts", "./global.d.ts"]
+}

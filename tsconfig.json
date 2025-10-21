@@ -13,5 +13,12 @@
       "modlib": ["./code/modlib"]
     }
   },
-  "include": ["./mods/**/*", "./code/mod/index.d.ts", "./dist/dist.ts", "./global.d.ts"]
+  "include": [
+    "./mods/**/*",
+    "./code/mod/index.d.ts",
+    "./code/modlib/**/*",
+    "mods/Testing/ui/**/*",
+    "./dist/dist.ts",
+    "./global.d.ts"
+  ]
 }

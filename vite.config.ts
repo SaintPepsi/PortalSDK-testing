@@ -38,6 +38,7 @@ export default defineConfig({
 
         // Walk directory and collect all .ts files
         const walk = (dir: string) => {
+          console.log("dir", dir);
           for (const file of fs.readdirSync(dir)) {
             const filepath = path.join(dir, file);
             if (fs.statSync(filepath).isDirectory()) {
@@ -48,24 +49,75 @@ export default defineConfig({
                 processedFiles.add(absPath);
                 const rel = path.relative(process.cwd(), filepath);
                 let contents = fs.readFileSync(filepath, "utf8");
+                // console.log("contents", contents);
+
+                const updatedContentsPerLine: string[] = [];
+                const contentsPerLine = contents.split("\n");
+
+                for (let i = 0; i < contentsPerLine.length; i++) {
+                  // Create import renames as new constants
+                  const currentLine = contentsPerLine[i];
+                  const importMatch = currentLine.match(
+                    /^import\s+(?!type).*?;?\s*$/
+                  );
+
+                  if (importMatch && importMatch[0].endsWith("{\r")) {
+                    const importLines = [];
+                    importLines.push(currentLine.replace("\r", ""));
+
+                    let nextLineIndex = i + 1;
+                    let endFound = false;
+                    while (contentsPerLine[nextLineIndex] && !endFound) {
+                      if (contentsPerLine[nextLineIndex].endsWith(";\r")) {
+                        endFound = true;
+                      }
+                      const nextLine = contentsPerLine[nextLineIndex];
+                      importLines.push(nextLine.replace("\r", ""));
+                      nextLineIndex++;
+                    }
+                    updatedContentsPerLine.push(importLines.join(""));
+                    i = nextLineIndex - 1;
+                  } else {
+                    updatedContentsPerLine.push(currentLine);
+                  }
+                }
+
+                // Replace renamed imports with a const rename "something as another" becomes "const another = something;"
+                // This is a simplified approach and may need to be enhanced for complex cases
+                for (let i = 0; i < updatedContentsPerLine.length; i++) {
+                  const line = updatedContentsPerLine[i];
+                  if (!line.startsWith("import ")) continue;
+                  const importAsMatch = line.match(
+                    /([a-zA-Z0-9]*) as ([a-zA-Z0-9]*)/gm
+                  );
+                  if (importAsMatch) {
+                    let newLine = [];
+                    for (const importAs of importAsMatch) {
+                      const importAsParts = importAs.split(" as ");
+                      const originalName = importAsParts[0];
+                      const aliasName = importAsParts[1];
+                      const replacementLine = `const ${aliasName} = ${originalName};\n`;
+                      newLine.push(replacementLine);
+                    }
+
+                    // Replace the line in the updated contents
+                    const index = updatedContentsPerLine.indexOf(line);
+                    if (index !== -1) {
+                      updatedContentsPerLine[index] = newLine.join("");
+                    }
+                  }
+                }
 
                 // Remove import statements since everything is inlined
-                contents = contents.replace(
-                  /^import\s+.*?from\s+['"].*?['"];?\s*$/gm,
-                  ""
-                );
+                contents = updatedContentsPerLine
+                  .join("\n")
+                  .replace(/^import\s+.*?;?\s*$/gm, "");
 
                 files.push(`// === ${rel} ===\n${contents}`);
               }
             }
           }
         };
-
-        // First, collect files from modlib (dependencies)
-        const modlibPath = path.resolve(__dirname, "code/modlib");
-        if (fs.existsSync(modlibPath)) {
-          walk(modlibPath);
-        }
 
         // Then collect files from mods/Testing
         walk("mods/Testing");

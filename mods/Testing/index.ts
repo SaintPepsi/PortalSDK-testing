@@ -8,9 +8,7 @@ If you're ever unsure how to do something, try searching for a relevant function
 
 */
 
-import { Button, handleButtonClick } from "./ui/components/Button";
-import { Container } from "./ui/components/Container";
-import { Text } from "./ui/components/Text";
+import { ModeSelector } from "./ui/modeSelector";
 
 // Track player choices
 enum PlayerChoice {
@@ -41,6 +39,14 @@ export async function OnPlayerJoinGame(eventPlayer: mod.Player): Promise<void> {
   // We'll show the UI in OnPlayerDeployed and undeploy them there
 }
 
+function GetPlayerName(player: mod.Player): string {
+  return mod.Message(player.toString()).toString();
+}
+
+function IsPlayer(name: string, player: mod.Player): boolean {
+  return GetPlayerName(player) == mod.Message(name).toString();
+}
+
 // Triggered when player leaves the game. Useful for clean up logic, team management, etc.
 export function OnPlayerLeaveGame(eventNumber: number): void {}
 
@@ -50,189 +56,41 @@ export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
     mod.Message("=== OnPlayerDeployed called ===")
   );
 
-  const choice = playerChoices.get(eventPlayer);
-  const choiceStr =
-    choice === undefined
-      ? "UNDEFINED"
-      : choice === PlayerChoice.None
-      ? "NONE"
-      : "CHOSEN";
-  mod.DisplayNotificationMessage(mod.Message("Player choice: ", choiceStr));
-
-  // If player hasn't made a choice yet (or isn't in the map), show UI then undeploy them
-  if (choice === PlayerChoice.None || choice === undefined) {
-    mod.DisplayNotificationMessage(mod.Message(">>> Showing UI..."));
-
-    // Show the welcome screen FIRST
-    showWelcomeScreen(eventPlayer);
-
-    mod.DisplayNotificationMessage(mod.Message(">>> Undeploying player..."));
-    // Wait a tiny bit for UI to register
-    await mod.Wait(0.1);
-
-    // Now undeploy them back to spectator
-    mod.UndeployPlayer(eventPlayer);
-    mod.DisplayNotificationMessage(mod.Message(">>> Player undeployed"));
-    return;
-  }
-
   // They've made a choice, apply loadout
-  mod.DisplayNotificationMessage(mod.Message("Player chose, applying loadout"));
-  stripPlayer(eventPlayer);
+  // stripPlayer(eventPlayer);
 
-  if (choice === PlayerChoice.Play) {
-    // Give player a pistol (M45A1)
-    mod.AddEquipment(
-      eventPlayer,
-      mod.Weapons.Sidearm_M45A1,
-      mod.InventorySlots.SecondaryWeapon
-    );
-  }
+  const modeSelector = new ModeSelector(eventPlayer);
+
+  // const simple_ui = new SimpleUI();
+  // simple_ui.show();
+
+  // await mod.Wait(1);
+
+  // console.log("playerName", eventPlayer.toString());
+  // mod.DisplayHighlightedWorldLogMessage(
+  //   mod.Message(mod.stringkeys.player_joined, eventPlayer.toString())
+  // );
+
+  // const simple_ui_counter = new SimpleCounterUI();
+  // simple_ui_counter.counter = 0;
+  // simple_ui_counter.show();
+  // while (true) {
+  //   simple_ui_counter.update();
+  //   await mod.Wait(1); // this is important
+  //   simple_ui_counter.counter += 1;
+
+  //   mod.DisplayHighlightedWorldLogMessage(
+  //     mod.Message(mod.stringkeys.player_joined, eventPlayer.toString())
+  //   );
+  // }
+
+  // Give player a pistol (M45A1)
+  // mod.AddEquipment(
+  //   eventPlayer,
+  //   mod.Weapons.Sidearm_M45A1,
+  //   mod.InventorySlots.SecondaryWeapon
+  // );
   // If choice is Explore, player gets nothing (already stripped)
-}
-
-function showWelcomeScreen(eventPlayer: mod.Player): void {
-  const playerId = ++uniqueID;
-
-  console.log("eventPlayer", eventPlayer);
-  console.log(JSON.stringify(eventPlayer, null, 2));
-
-  playerUIIds.set(eventPlayer, playerId);
-  const bfBlueColor: Text.Props["textColor"] = [0.678, 0.753, 0.8];
-
-  const containerWidth = 600;
-  const containerHeight = 300;
-  const buttonWidth = 200;
-  const buttonHeight = 60;
-  const buttonSpacing = 50;
-
-  console.log(
-    "Creating welcome screen for player: ",
-    mod.GetObjId(eventPlayer)
-  );
-  console.log("Player is valid? ", String(mod.IsPlayerValid(eventPlayer)));
-  console.log(
-    "Player is alive? ",
-    String(mod.GetSoldierState(eventPlayer, mod.SoldierStateBool.IsAlive))
-  );
-
-  // Create the container using new UI namespace
-  const container = Container({
-    size: [containerWidth, containerHeight],
-    position: [0, 0],
-    name: "welcome_container_" + playerId,
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.Solid,
-    bgColor: [0.1, 0.1, 0.2],
-    bgAlpha: 0.95,
-    visible: true,
-  });
-
-  // Create title text
-  Text({
-    parent: container,
-    name: "welcome_title_" + playerId,
-    size: [containerWidth - 40, 80],
-    position: [0, -80],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.None,
-    textColor: bfBlueColor,
-    textAnchor: mod.UIAnchor.Center,
-    label: mod.Message("Hey! Thanks for trying out this experience!"),
-    textSize: 32,
-  });
-
-  // Create subtitle text
-  Text({
-    parent: container,
-    name: "welcome_subtitle_" + playerId,
-    size: [containerWidth - 40, 60],
-    position: [0, -20],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.None,
-    textColor: bfBlueColor,
-    textAnchor: mod.UIAnchor.Center,
-    label: mod.Message("Would you like to explore or play?"),
-    textSize: 24,
-  });
-
-  // Create "PLAY" button with onClick handler
-  const playButton = Button({
-    parent: container,
-    name: "btn_play_" + playerId,
-    size: [buttonWidth, buttonHeight],
-    position: [-buttonWidth / 2 - buttonSpacing / 2, 60],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.Solid,
-    bgColor: [0.2, 0.6, 0.2],
-    bgAlpha: 0.9,
-    colorBase: [0.2, 0.6, 0.2],
-    alphaBase: 1,
-    colorHover: [0.3, 0.8, 0.3],
-    alphaHover: 1,
-    colorPressed: [0.1, 0.4, 0.1],
-    alphaPressed: 1,
-    onClick: (player) => handlePlayerChoice(player, PlayerChoice.Play),
-  });
-
-  // Play button text
-  Text({
-    parent: playButton,
-    name: "btn_play_text_" + playerId,
-    size: [buttonWidth, buttonHeight],
-    position: [0, 0],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.None,
-    textColor: [1, 1, 1],
-    textAnchor: mod.UIAnchor.Center,
-    label: mod.Message("PLAY"),
-    textSize: 28,
-  });
-
-  // Create "EXPLORE" button with onClick handler
-  const exploreButton = Button({
-    parent: container,
-    name: "btn_explore_" + playerId,
-    size: [buttonWidth, buttonHeight],
-    position: [buttonWidth / 2 + buttonSpacing / 2, 60],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.Solid,
-    bgColor: [0.2, 0.4, 0.8],
-    bgAlpha: 0.9,
-    colorBase: [0.2, 0.4, 0.8],
-    alphaBase: 1,
-    colorHover: [0.3, 0.5, 1],
-    alphaHover: 1,
-    colorPressed: [0.1, 0.2, 0.5],
-    alphaPressed: 1,
-    onClick: (player) => handlePlayerChoice(player, PlayerChoice.Explore),
-  });
-
-  // Explore button text
-  Text({
-    parent: exploreButton,
-    name: "btn_explore_text_" + playerId,
-    size: [buttonWidth, buttonHeight],
-    position: [0, 0],
-    anchor: mod.UIAnchor.Center,
-    bgFill: mod.UIBgFill.None,
-    textColor: [1, 1, 1],
-    textAnchor: mod.UIAnchor.Center,
-    label: mod.Message("EXPLORE"),
-    textSize: 28,
-  });
-
-  console.log("Welcome UI created");
-
-  // Set UI depth to appear above the deployment/class selection screen
-  mod.SetUIWidgetDepth(container, mod.UIDepth.AboveGameUI);
-  mod.SetUIWidgetVisible(container, true);
-  mod.SetUIWidgetDepth(playButton, mod.UIDepth.AboveGameUI);
-  mod.SetUIWidgetVisible(playButton, true);
-  mod.SetUIWidgetDepth(exploreButton, mod.UIDepth.AboveGameUI);
-  mod.SetUIWidgetVisible(exploreButton, true);
-
-  console.log("UI depth and visibility configured");
 }
 
 // Triggered on player death/kill, returns dying player, the killer, etc. Useful for updating scores, updating progression, handling any death/kill related logic.
@@ -295,7 +153,12 @@ export function OnPlayerUIButtonEvent(
   eventUIButtonEvent: mod.UIButtonEvent
 ): void {
   // Use the new UI.handleButtonClick to handle onClick events
-  handleButtonClick(eventPlayer, eventUIWidget, eventUIButtonEvent);
+  // handleButtonClick(eventPlayer, eventUIWidget, eventUIButtonEvent);
+  ModeSelector.OnPlayerUIButtonEvent(
+    eventPlayer,
+    eventUIWidget,
+    eventUIButtonEvent
+  );
 }
 
 function handlePlayerChoice(player: mod.Player, choice: PlayerChoice): void {
@@ -354,55 +217,55 @@ export async function OnGameModeStarted() {
   mod.EnableHQ(hq, true);
 
   // Enables or disables the provided objective.
-  const capturePoint = mod.GetCapturePoint(0);
-  console.log("capturePoint", capturePoint);
-  mod.EnableGameModeObjective(capturePoint, true);
+  // const capturePoint = mod.GetCapturePoint(0);
+  // console.log("capturePoint", capturePoint);
+  // mod.EnableGameModeObjective(capturePoint, true);
 
   // Returns the id corresponding to the provided object.
-  const capturePointId = mod.GetObjId(capturePoint);
+  // const capturePointId = mod.GetObjId(capturePoint);
 
   // Returns a vector composed of three provided 'X' (left), 'Y' (up), and 'Z' (forward) values.
   // Useful for specifying transform, 3d velocity or RGB color.
-  const vector = mod.CreateVector(1, 2, 3);
+  // const vector = mod.CreateVector(1, 2, 3);
 
   // Get player closest to a point
-  const player = mod.ClosestPlayerTo(vector);
+  // const player = mod.ClosestPlayerTo(vector);
 
   // Returns the team value of the specified player OR the corresponding team of the provided number.
-  const teamOfPlayer = mod.GetTeam(player);
-  const teamObject = mod.GetTeam(0);
+  // const teamOfPlayer = mod.GetTeam(player);
+  // const teamObject = mod.GetTeam(0);
 
   // Displays a notification-type Message on the top-right of the screen for 6 seconds. Useful for communicating game state/info or debugging.
-  const exampleMessage = mod.Message("example");
-  mod.DisplayNotificationMessage(exampleMessage);
-  mod.DisplayNotificationMessage(exampleMessage, player);
-  mod.DisplayNotificationMessage(exampleMessage, teamOfPlayer);
+  // const exampleMessage = mod.Message("example");
+  // mod.DisplayNotificationMessage(exampleMessage);
+  // mod.DisplayNotificationMessage(exampleMessage, player);
+  // mod.DisplayNotificationMessage(exampleMessage, teamOfPlayer);
 
   // Adds X delay in seconds. Useful for making sure that everything has been initialized before running logic or delaying triggers.
-  await mod.Wait(5);
+  // await mod.Wait(5);
 
   // Teleports a target to a provided valid position facing a specified angle (in radians).
-  mod.Teleport(player, mod.CreateVector(100, 0, 100), mod.Pi());
+  // mod.Teleport(player, mod.CreateVector(100, 0, 100), mod.Pi());
 
   // Returns the 'X', 'Y', or 'Z' component of a provided vector.
   // Useful for modifying specific vector component or debugging transform.
-  const x = mod.XComponentOf(vector);
-  const y = mod.YComponentOf(vector);
-  const z = mod.ZComponentOf(vector);
-  const changedVector = mod.CreateVector(x + 10, y - 5, z * 2);
+  // const x = mod.XComponentOf(vector);
+  // const y = mod.YComponentOf(vector);
+  // const z = mod.ZComponentOf(vector);
+  // const changedVector = mod.CreateVector(x + 10, y - 5, z * 2);
 
-  // Returns various player state information
-  const eyePosition = mod.GetSoldierState(
-    player,
-    mod.SoldierStateVector.EyePosition
-  );
-  const facingDirection = mod.GetSoldierState(
-    player,
-    mod.SoldierStateVector.GetFacingDirection
-  );
-  const health = mod.GetSoldierState(
-    player,
-    mod.SoldierStateNumber.CurrentHealth
-  );
-  const isInWater = mod.GetSoldierState(player, mod.SoldierStateBool.IsInWater);
+  // // Returns various player state information
+  // const eyePosition = mod.GetSoldierState(
+  //   player,
+  //   mod.SoldierStateVector.EyePosition
+  // );
+  // const facingDirection = mod.GetSoldierState(
+  //   player,
+  //   mod.SoldierStateVector.GetFacingDirection
+  // );
+  // const health = mod.GetSoldierState(
+  //   player,
+  //   mod.SoldierStateNumber.CurrentHealth
+  // );
+  // const isInWater = mod.GetSoldierState(player, mod.SoldierStateBool.IsInWater);
 }

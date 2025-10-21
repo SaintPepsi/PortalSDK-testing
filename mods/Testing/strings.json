@@ -1,3 +1,11 @@
 {
-  "helloWorld": "Hello, World!"
+  "helloworld": "Hello, World!",
+  "counter": "{}",
+
+  "title": "Text Examples Demo",
+
+  "score_display": "Score: {}",
+  "level_and_score": "Level {} - Score: {}",
+  "level_up": "Level Up! Now Level {}",
+  "player_joined": "{} has joined the game"
 }

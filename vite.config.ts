@@ -119,6 +119,12 @@ export default defineConfig({
           }
         };
 
+        // First, collect files from modlib (dependencies)
+        const modlibPath = path.resolve(__dirname, "code/modlib");
+        if (fs.existsSync(modlibPath)) {
+          walk(modlibPath);
+        }
+
         // Then collect files from mods/Testing
         walk("mods/Testing");
 
@@ -133,10 +139,8 @@ export default defineConfig({
         // so we don't include the triple-slash reference to avoid errors.
         // For local type-checking, types are configured in tsconfig.json
         const header = `// Portal SDK Bundled Script\n// The 'mod' namespace is provided by the Portal runtime environment\n\n`;
-        fs.writeFileSync(
-          path.join(distDir, "dist.ts"),
-          header + files.join("\n\n")
-        );
+        const finalDistContent = header + files.join("\n\n");
+        fs.writeFileSync(path.join(distDir, "dist.ts"), finalDistContent);
         console.log(
           "✅ dist/dist.ts generated with all TypeScript sources combined"
         );
@@ -184,6 +188,38 @@ export default defineConfig({
           JSON.stringify(tsconfigContent, null, 2)
         );
         console.log("✅ dist/tsconfig.json created");
+
+        const stringsJson = fs.readFileSync(stringsSource, "utf8");
+        const strings = Object.keys(JSON.parse(stringsJson));
+
+        function checkStringsAreRepresented() {
+          // checks if all strings in the json are used in the codebase
+
+          strings.forEach((strKey) => {
+            if (!finalDistContent.includes(`mod.stringkeys.${strKey}`)) {
+              console.warn(
+                `⚠️ Warning: String key "${strKey}" from strings.json not found in codebase.`
+              );
+            }
+          });
+        }
+        function checkStringNotInStringsJson() {
+          // checks if any strings used in the code are missing from strings.json
+
+          finalDistContent
+            .match(/mod.stringkeys\.([a-zA-Z0-9_]+)/g)
+            ?.forEach((match) => {
+              const strKey = match.replace("mod.stringkeys.", "");
+              if (!strings.includes(strKey)) {
+                console.warn(
+                  `⚠️ Warning: String key "${strKey}" used in code but not found in strings.json.`
+                );
+              }
+            });
+        }
+
+        checkStringsAreRepresented();
+        checkStringNotInStringsJson();
       },
     },
   ],
